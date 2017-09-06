@@ -1,6 +1,6 @@
 /**
  *  D-Link Camera Event Manager
- *  Build 2017082501
+ *  Build 2017090601
  *
  *  Adapted from Ben Lebson's (GitHub: blebson) Smart Security Camera SmartApp that is designed to work with his D-Link
  *  series of device handlers.
@@ -48,6 +48,9 @@
  *      
  *      2017082501:
  *          Added debug logging setting
+ *      
+ *      2017090601:
+ *          Increased photo burst delay to 8 seconds.
  *      
  */
 definition(
@@ -327,10 +330,10 @@ def snap() {
     if ( (takePhoto) && ( (location.mode != "Home") || (!burstLimit) || ( (location.mode == "Home") && (burstLimit) && (now() > state.photoLockTime) ) ) && (state.positionState == presetNum) ) {
         photoLockOn()
         
-        log.debug "Taking ${burst} photo(s) with a 7 second delay."
+        log.debug "Taking ${burst} photo(s) with a 8 second delay."
         camera.take()
         (burst - 1).times {
-            camera.take([delay: 7000])
+            camera.take([delay: 8000])
         }
     }
 }
