@@ -1,6 +1,6 @@
 /**
  *  D-Link Camera Event Manager
- *  Build 2017090601
+ *  Build 2017112401
  *
  *  Adapted from Ben Lebson's (GitHub: blebson) Smart Security Camera SmartApp that is designed to work with his D-Link
  *  series of device handlers.
@@ -51,7 +51,11 @@
  *      
  *      2017090601:
  *          Increased photo burst delay to 8 seconds.
- *      
+ *
+ *      2017112401:
+ *          Removed conditions in the moveLockOff() function.
+ *          Added moveLockOff() calls in installed() and updated() functions.
+ *
  */
 definition(
     name: "D-Link Camera Event Manager",
@@ -136,6 +140,7 @@ def notificationPage() {
 
 def installed() {
     goHome()
+    moveLockOff()
     
     log.debug "Installed with settings: ${settings}"
     
@@ -147,6 +152,7 @@ def updated() {
     state.clear()
     
     goHome()
+    moveLockOff()
     
     log.debug "Updated with settings: ${settings}"
     
@@ -364,9 +370,10 @@ def moveLockOn() {
 }
 
 def moveLockOff() {
-    if (state.moveLock) {
-        camera.moveLockOff()
-    }
+    // Changing between various instances of D-Link Camera Event Manager can cause scheduled calls to moveLockOff() to
+    // be prematurely abandoned. Allowing this to run unchecked will ensure that the moveLock device attribute that
+    // they control is updated even when a problem occurs.
+    camera.moveLockOff()
 }
 
 // photoLock is by design a lock local to each instance of D-Link Camera Event Manager
