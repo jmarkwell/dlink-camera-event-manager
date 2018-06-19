@@ -1,11 +1,11 @@
 /**
  *  D-Link Camera Event Manager
- *  Build 2017112401
+ *  Build 2018061801
  *
  *  Adapted from Ben Lebson's (GitHub: blebson) Smart Security Camera SmartApp that is designed to work with his D-Link
  *  series of device handlers.
  *
- *  Copyright 2017 Jordan Markwell
+ *  Copyright 2018 Jordan Markwell
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -18,54 +18,64 @@
  *
  *  ChangeLog:
  *      
+ *      20180618
+ *          01: moveLock will no longer extend motion locking for the position it is currently in.
+ *
+ *      20180510
+ *          01: Removed the moveLockOff() and moveLockHandler() functions.
+ *          02: The attribute, "switch6", will now be known as, "PTZPos".
+ *          03: The function, "sendMessage()", will now be known as, "eventHandler()".
+ *          04: Code cleanup.
+ *
+ *      20171124
+ *          01: Removed conditions in the moveLockOff() function.
+ *          02: Added moveLockOff() calls in installed() and updated() functions.
+ *
+ *      20170906
+ *          01: Increased photo burst delay to 8 seconds.
+ *
+ *      20170825
+ *          01: Added debug logging setting.
+ *
+ *      20170824
+ *          01: Functionized setting of moveDelay and de-functionized photoLockOff() by setting conditions on snap().
+ *          02: Made the menus more fancy.
+ *
+ *      20170823
+ *          01: Mode based reset didn't fix the problem with photoLock. Mode restrictions appear to exist in a higher level
+ *              process. Converted photoLock from a delay based system to a time based system.
+ *
+ *      20170821
+ *          01: If movement is enabled and the camera is not in the requested position for a photo, snap() will now be
+ *              triggered by movement events from the camera.
+ *          02: The lock, photoLock is instance specific and sometimes hangs on a mode change. Adding a mode change
+ *              subscription that will reset the lock.
+ *
+ *      20170818
+ *          01: Converted moveLock to a device attribute with corresponding functions so that the lock works in conjunction
+ *              with other instances of D-Link Camera Event Manager.
+ *
  *      Earlier:
- *          Dwell time following a motion event is now a preference
- *          Added ability to return to home position after having moved to a preset position
- *          Added logic to keep the app from sending duplicitous commands
- *          Added movement locking mechanism to keep the camera from spazzing out when there is a lot of activity
- *          Added ability to limit photos taken while in Home mode
+ *          Dwell time following a motion event is now a preference.
+ *          Added ability to return to home position after having moved to a preset position.
+ *          Added logic to keep the app from sending duplicitous commands.
+ *          Added movement locking mechanism to keep the camera from spazzing out when there is a lot of activity.
+ *          Added ability to limit photos taken while in Home mode.
  *          Added a 4 second delay before taking a photo after movement has occurred to ensure that the camera has
  *              arrived at the requested location before the photo is taken. This may work more efficiently if a change
  *              in the switch6 attribute can trigger the photo burst...
- *      
- *      2017081801:
- *          Converted moveLock to a device attribute with corresponding functions so that the lock works in conjunction
- *              with other instances of D-Link Camera Event Manager
- *      
- *      2017082101:
- *          If movement is enabled and the camera is not in the requested position for a photo, snap() will now be
- *              triggered by movement events from the camera
- *          The lock, photoLock is instance specific and sometimes hangs on a mode change. Adding a mode change
- *              subscription that will reset the lock
- *      
- *      2017082301:
- *          Mode based reset didn't fix the problem with photoLock. Mode restrictions appear to exist in a higher level
- *              process. Converted photoLock from a delay based system to a time based system
- *      
- *      2017082401:
- *          Functionized setting of moveDelay and de-functionized photoLockOff() by setting conditions on snap()
- *          Made the menus more fancy
- *      
- *      2017082501:
- *          Added debug logging setting
- *      
- *      2017090601:
- *          Increased photo burst delay to 8 seconds.
- *
- *      2017112401:
- *          Removed conditions in the moveLockOff() function.
- *          Added moveLockOff() calls in installed() and updated() functions.
- *
  */
+ 
 definition(
-    name: "D-Link Camera Event Manager",
-    namespace: "jmarkwell",
-    author: "Jordan Markwell",
+    name:        "D-Link Camera Event Manager",
+    namespace:   "jmarkwell",
+    author:      "Jordan Markwell",
     description: "For D-Link cameras using BLebson's device handlers. Move to preset positions, take photos, record video clips and send notifications.",
-    category: "Safety & Security",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when@2x.png"
+    category:    "Safety & Security",
+    iconUrl:     "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when.png",
+    iconX2Url:   "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when@2x.png",
+    iconX3Url:   "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when@2x.png",
+    pausable:    true
 )
 
 preferences {
@@ -140,7 +150,6 @@ def notificationPage() {
 
 def installed() {
     goHome()
-    moveLockOff()
     
     log.debug "Installed with settings: ${settings}"
     
@@ -152,7 +161,6 @@ def updated() {
     state.clear()
     
     goHome()
-    moveLockOff()
     
     log.debug "Updated with settings: ${settings}"
     
@@ -161,18 +169,19 @@ def updated() {
 }
 
 def subscribeToEvents() {
-    subscribe(contact, "contact.open", sendMessage)
-    subscribe(acceleration, "acceleration.active", sendMessage)
-    subscribe(motion, "motion.active", sendMessage)
-    subscribe(motion, "motion.inactive", sendMessage)
-    subscribe(switchOn, "switch.on", sendMessage)
-    subscribe(presenceArrival, "presence.present", sendMessage)
-    subscribe(presenceDeparture, "presence.not present", sendMessage)
-    subscribe(camera, "switch6", switch6Handler)
-    subscribe(camera, "moveLock", moveLockHandler)
+    subscribe(contact, "contact.open", eventHandler)
+    subscribe(acceleration, "acceleration.active", eventHandler)
+    subscribe(motion, "motion.active", eventHandler)
+    subscribe(motion, "motion.inactive", eventHandler)
+    subscribe(switchOn, "switch.on", eventHandler)
+    subscribe(presenceArrival, "presence.present", eventHandler)
+    subscribe(presenceDeparture, "presence.not present", eventHandler)
+    subscribe(camera, "PTZPos", positionHandler)
 }
 
-def sendMessage(evt) {
+def eventHandler(evt) {
+    def moveLockTime = camera.currentValue("moveLockTime") ?: 0
+    
     if (debug) { log.debug "$evt.name: $evt.value" }
     
     // new events will modify the timeframe
@@ -186,31 +195,33 @@ def sendMessage(evt) {
         }
         
         if (moveEnabled) {
-            if ( (!state.moveLock) && (state.positionState != presetNum) ) {
+            if ( (now() > moveLockTime) && (state.positionState != presetNum) ) {
                 log.debug "Moving to preset $presetNum. ($evt.name: $evt.value)"
                 camera.presetCommand(presetNum)
                 
                 if (debug) { log.debug "Setting $motionDuration second movement request lockout. ($evt.name: $evt.value)" }
                 moveLockOn()
-                runIn(motionDuration, moveLockOff)
                 
                 moveDelayOn()
-            } else if (state.positionState == presetNum) {
-                if (state.moveLock) {
-                    if (debug) { log.debug "Setting $motionDuration second movement request lockout. (rescheduled) ($evt.name: $evt.value)" }
-                    unschedule(moveLockOff)
-                } else {
-                    if (debug) { log.debug "Setting $motionDuration second movement request lockout. ($evt.name: $evt.value)" }
-                }
-                moveLockOn()
-                runIn(motionDuration, moveLockOff)
+            }
+            else if (state.positionState == presetNum) {
+                // Enabling the following block will extend moveLock time periods when events (like a motion detection) take place.
+                // if (now() <= moveLockTime) {
+                    // if (debug) { log.debug "Setting $motionDuration second movement request lockout. (rescheduled) ($evt.name: $evt.value)" }
+                // }
+                // else {
+                    // if (debug) { log.debug "Setting $motionDuration second movement request lockout. ($evt.name: $evt.value)" }
+                // }
+                // moveLockOn()
                 
                 snap()
             }
-        } else { // if (!moveEnabled)
+        }
+        else { // if (!moveEnabled)
             snap()
         }
-    } else if ( (evt.name == "motion") && (evt.value == "inactive") ) {
+    }
+    else if ( (evt.name == "motion") && (evt.value == "inactive") ) {
         if (recordVideo) {
             if (debug) { log.debug "Turning video recording off in $motionDuration seconds. ($evt.name: $evt.value)" }
             runIn(motionDuration, videoOff)
@@ -219,9 +230,9 @@ def sendMessage(evt) {
         if ( (moveEnabled) && (returnHome) && (state.positionState != 1) ) {
             if (debug) { log.debug "Going home in $motionDuration seconds. ($evt.name: $evt.value)" }
             runIn(motionDuration, goHome)
-            // do not set moveLock here if you want new events to update the timeframe
         }
-    } else if (evt.name != "motion") {
+    }
+    else if (evt.name != "motion") {
         if (recordVideo) {
             log.debug "Turning video recording on. ($evt.name: $evt.value)"
             camera.vrOn()
@@ -231,13 +242,12 @@ def sendMessage(evt) {
         }
         
         if (moveEnabled) {
-            if ( (!state.moveLock) && (state.positionState != presetNum) ) {
+            if ( (now() > moveLockTime) && (state.positionState != presetNum) ) {
                 log.debug "Moving to preset $presetNum. ($evt.name: $evt.value)"
                 camera.presetCommand(presetNum)
                 
                 if (debug) { log.debug "Setting $nonMotionDuration second movement request lockout. ($evt.name: $evt.value)" }
                 moveLockOn()
-                runIn(nonMotionDuration, moveLockOff)
                 
                 moveDelayOn()
                 
@@ -245,15 +255,16 @@ def sendMessage(evt) {
                     if (debug) { log.debug "Going home in $nonMotionDuration seconds. ($evt.name: $evt.value)" }
                     runIn(nonMotionDuration, goHome)
                 }
-            } else if (state.positionState == presetNum) { // if camera is in preset position
-                if (state.moveLock) {
-                    if (debug) { log.debug "Setting $motionDuration second movement request lockout. (rescheduled) ($evt.name: $evt.value)" }
-                    unschedule(moveLockOff)
-                } else {
-                    if (debug) { log.debug "Setting $motionDuration second movement request lockout. ($evt.name: $evt.value)" }
-                }
-                moveLockOn()
-                runIn(motionDuration, moveLockOff)
+            }
+            else if (state.positionState == presetNum) { // if camera is in preset position
+                // Enabling the following block will extend moveLock time periods when events (like a motion detection) take place.
+                // if (now() <= moveLockTime) {
+                    // if (debug) { log.debug "Setting $motionDuration second movement request lockout. (rescheduled) ($evt.name: $evt.value)" }
+                // }
+                // else {
+                    // if (debug) { log.debug "Setting $motionDuration second movement request lockout. ($evt.name: $evt.value)" }
+                // }
+                // moveLockOn()
                 
                 snap()
                 
@@ -263,7 +274,8 @@ def sendMessage(evt) {
                     runIn(nonMotionDuration, goHome)
                 }
             }
-        } else { // if (!moveEnabled)
+        }
+        else { // if (!moveEnabled)
             snap()
         }
     }
@@ -273,10 +285,10 @@ def sendMessage(evt) {
     }
 }
 
-def switch6Handler(evt) {
-    // log.debug "switch6Handler: [$evt.name: $evt.value]"
+def positionHandler(evt) {
+    // log.debug "positionHandler: [$evt.name: $evt.value]"
     
-    // this particular evt.value is also known as camera.currentValue("switch6")
+    // this particular evt.value is also known as camera.currentValue("PTZPos")
     switch (evt.value) {
         case "home":
             state.positionState = 1
@@ -303,27 +315,12 @@ def switch6Handler(evt) {
     }
 }
 
-def moveLockHandler(evt) {
-    // log.debug "moveLockHandler: [$evt.name: $evt.value]"
-    
-    // this particular evt.value is also known as camera.currentValue("moveLock")
-    switch (evt.value) {
-        case "on":
-            state.moveLock = true
-            break
-        default:
-            state.moveLock = false
-            break
-    }
-    
-    if (debug) { log.debug "moveLock: ${state.moveLock}" }
-}
-
 def sendNotification() {
     if (messageText) {
         if (location.contactBookEnabled) {
             sendNotificationToContacts(messageText, recipients)
-        } else {
+        }
+        else {
             sendPush(messageText)
             if (phone) {
                 sendSms(phone, messageText)
@@ -364,16 +361,10 @@ def moveDelayOn() {
 }
 
 def moveLockOn() {
-    if (!state.moveLock) {
-        camera.moveLockOn()
+    def moveLockTime = camera.currentValue("moveLockTime") ?: 0
+    if (now() > moveLockTime) {
+        camera.moveLockOn(motionDuration)
     }
-}
-
-def moveLockOff() {
-    // Changing between various instances of D-Link Camera Event Manager can cause scheduled calls to moveLockOff() to
-    // be prematurely abandoned. Allowing this to run unchecked will ensure that the moveLock device attribute that
-    // they control is updated even when a problem occurs.
-    camera.moveLockOff()
 }
 
 // photoLock is by design a lock local to each instance of D-Link Camera Event Manager
