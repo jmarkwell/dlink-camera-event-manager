@@ -70,7 +70,7 @@ definition(
     name:        "D-Link Camera Event Manager",
     namespace:   "jmarkwell",
     author:      "Jordan Markwell",
-    description: "For D-Link cameras using BLebson's device handlers. Move to preset positions, take photos, record video clips and send notifications.",
+    description: "For D-Link cameras using BLebsons device handlers. Move to preset positions, take photos, record video clips and send notifications.",
     category:    "Safety & Security",
     iconUrl:     "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when.png",
     iconX2Url:   "https://s3.amazonaws.com/smartapp-icons/Partner/photo-burst-when@2x.png",
